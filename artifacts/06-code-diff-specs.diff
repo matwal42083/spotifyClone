@@ -1,0 +1,864 @@
+--- a/src/utils/spotifyApi.js
++++ b/src/utils/spotifyApi.js
+@@ -0,0 +1,62 @@
++export async function fetchWebApi(endpoint, method = 'GET', body, token) {
++  if (!token) {
++    throw new Error('AUTH_EXPIRED');
++  }
++  let res;
++  try {
++    res = await fetch(`https://api.spotify.com/${endpoint}`, {
++      headers: {
++        Authorization: `Bearer ${token}`,
++        'Content-Type': 'application/json',
++      },
++      method,
++      body: body ? JSON.stringify(body) : undefined,
++    });
++  } catch {
++    throw new Error('RATE_LIMITED');
++  }
++  if (res.status === 401) {
++    throw new Error('AUTH_EXPIRED');
++  }
++  if (res.status === 429 || !res.ok) {
++    throw new Error('RATE_LIMITED');
++  }
++  return await res.json();
++}
++
++export async function getTopTracks(token, timeRange = 'long_term', limit = 50) {
++  const data = await fetchWebApi(
++    `v1/me/top/tracks?time_range=${timeRange}&limit=${limit}`,
++    'GET',
++    undefined,
++    token
++  );
++  return Array.isArray(data?.items) ? data.items : [];
++}
++
++export async function createPlaylistWithTracks(
++  token,
++  tracksUri,
++  name = 'My top tracks playlist'
++) {
++  if (!Array.isArray(tracksUri) || tracksUri.length === 0) {
++    throw new Error('EMPTY_TRACKS');
++  }
++  const playlist = await fetchWebApi(
++    'v1/me/playlists',
++    'POST',
++    {
++      name,
++      description: 'Playlist created by the tutorial on developer.spotify.com',
++      public: false,
++    },
++    token
++  );
++  await fetchWebApi(
++    `v1/playlists/${playlist.id}/items?uris=${tracksUri.join(',')}`,
++    'POST',
++    undefined,
++    token
++  );
++  return playlist;
++}
+--- a/src/utils/beatVisualizer.js
++++ b/src/utils/beatVisualizer.js
+@@ -0,0 +1,84 @@
++export const DEFAULT_BAR_COUNT = 16;
++
++export const RESTING_THEME = {
++  backgroundColor: '#000000',
++  foregroundColor: '#1DB954',
++  isBeatPulse: false,
++  intervalMs: 0,
++  equalizerBars: Array(DEFAULT_BAR_COUNT).fill(15),
++};
++
++export const BEATS_PALETTE = [
++  '#1DB954',
++  '#FF2A85',
++  '#00F0FF',
++  '#FFB800',
++  '#A855F7',
++  '#3B82F6',
++];
++
++export function calculateBeatIntervalMs(bpm) {
++  if (typeof bpm !== 'number' || !Number.isFinite(bpm) || bpm <= 0) {
++    return 500;
++  }
++  return Math.round(60000 / bpm);
++}
++
++export function generateEqualizerBars(
++  isPlaying,
++  isBeatPulse = false,
++  randomFn = Math.random,
++  barCount = DEFAULT_BAR_COUNT
++) {
++  if (!isPlaying) {
++    return Array(barCount).fill(15);
++  }
++  const boost = isBeatPulse ? 20 : 0;
++  return Array.from({ length: barCount }, () => {
++    const raw = Math.round(25 + randomFn() * 55 + boost);
++    return Math.max(15, Math.min(100, raw));
++  });
++}
++
++export function computeNextVisualState({
++  isPlaying,
++  bpm = null,
++  tickCount = 0,
++  randomFn = Math.random,
++} = {}) {
++  if (!isPlaying) {
++    return {
++      ...RESTING_THEME,
++      equalizerBars: [...RESTING_THEME.equalizerBars],
++    };
++  }
++  const rawIndex = Math.floor(randomFn() * BEATS_PALETTE.length);
++  const safeIndex = Math.max(0, Math.min(BEATS_PALETTE.length - 1, rawIndex));
++  const isBeatPulse = tickCount % 2 === 0;
++  return {
++    backgroundColor: '#000000',
++    foregroundColor: BEATS_PALETTE[safeIndex],
++    isBeatPulse,
++    intervalMs: calculateBeatIntervalMs(bpm),
++    equalizerBars: generateEqualizerBars(true, isBeatPulse, randomFn),
++  };
++}
++
++export function applyThemeToDocument(visualState = RESTING_THEME) {
++  if (typeof document === 'undefined' || !document.documentElement) {
++    return;
++  }
++  const root = document.documentElement;
++  root.style.setProperty('--bg-color', visualState.backgroundColor);
++  root.style.setProperty('--fg-color', visualState.foregroundColor);
++  root.style.setProperty(
++    '--beat-scale',
++    visualState.isBeatPulse ? '1.02' : '1'
++  );
++  root.style.setProperty(
++    '--beat-glow',
++    visualState.isBeatPulse
++      ? `0 0 14px ${visualState.foregroundColor}`
++      : 'none'
++  );
++}
+--- a/src/data/fallbackCatalog.js
++++ b/src/data/fallbackCatalog.js
+@@ -0,0 +1,7 @@
++export const TIME_RANGE_OPTIONS = [
++  { optionId: 'range-short', rangeKey: 'short_term', displayLabel: 'Last 4 Weeks' },
++  { optionId: 'range-medium', rangeKey: 'medium_term', displayLabel: 'Last 6 Months' },
++  { optionId: 'range-long', rangeKey: 'long_term', displayLabel: 'All Time' },
++];
++
++export const DEFAULT_EMBED_PLAYLIST_ID = '2iFnYqiudxwGD3MGCxu2im';
+--- a/src/components/Navbar.jsx
++++ b/src/components/Navbar.jsx
+@@ -0,0 +1,23 @@
++import React from 'react';
++import { Link } from 'react-router-dom';
++
++export default function Navbar({ foregroundColor = '#1DB954', isBeatPulse = false }) {
++  return (
++    <header
++      data-testid="navbar"
++      style={{
++        backgroundColor: '#000000',
++        color: foregroundColor,
++        borderBottom: `2px solid ${foregroundColor}`,
++        boxShadow: isBeatPulse ? `0 0 12px ${foregroundColor}` : 'none',
++        transform: isBeatPulse ? 'scale(1.01)' : 'scale(1)',
++      }}
++    >
++      <nav>
++        <Link to="/" style={{ color: foregroundColor, borderColor: foregroundColor }}>
++          Spotify Clone Beat Dashboard
++        </Link>
++      </nav>
++    </header>
++  );
++}
+--- a/src/components/Footer.jsx
++++ b/src/components/Footer.jsx
+@@ -0,0 +1,23 @@
++import React from 'react';
++
++export default function Footer({
++  activePlaylistId = '2iFnYqiudxwGD3MGCxu2im',
++  foregroundColor = '#1DB954',
++  isBeatPulse = false,
++}) {
++  return (
++    <footer
++      data-testid="footer"
++      style={{
++        backgroundColor: '#000000',
++        color: foregroundColor,
++        borderTop: `2px solid ${foregroundColor}`,
++        boxShadow: isBeatPulse ? `0 0 12px ${foregroundColor}` : 'none',
++      }}
++    >
++      <p style={{ color: foregroundColor }}>
++        Active Embed Playlist: {activePlaylistId}
++      </p>
++    </footer>
++  );
++}
+--- a/src/pages/NotFound.jsx
++++ b/src/pages/NotFound.jsx
+@@ -0,0 +1,19 @@
++import React from 'react';
++import { Link } from 'react-router-dom';
++
++export default function NotFound() {
++  return (
++    <main
++      data-testid="not-found-page"
++      style={{
++        backgroundColor: '#000000',
++        color: '#1DB954',
++        border: '2px solid #1DB954',
++      }}
++    >
++      <h1>404 - Page Not Found</h1>
++      <p>The requested Spotify Clone route does not exist.</p>
++      <Link to="/" style={{ color: '#1DB954' }}>Return to Dashboard</Link>
++    </main>
++  );
++}
+--- a/src/components/GraphicEqualizer.jsx
++++ b/src/components/GraphicEqualizer.jsx
+@@ -0,0 +1,48 @@
++import React from 'react';
++import { DEFAULT_BAR_COUNT } from '../utils/beatVisualizer';
++
++export default function GraphicEqualizer({
++  bars = Array(DEFAULT_BAR_COUNT).fill(15),
++  foregroundColor = '#1DB954',
++  isBeatPulse = false,
++  isPlaying = false,
++}) {
++  return (
++    <section
++      aria-label="Graphic Equalizer"
++      data-testid="graphic-equalizer"
++      style={{
++        backgroundColor: '#000000',
++        color: foregroundColor,
++        border: `2px solid ${foregroundColor}`,
++        boxShadow: isBeatPulse ? `0 0 16px ${foregroundColor}` : 'none',
++      }}
++    >
++      <div
++        data-testid="equalizer-bars-container"
++        style={{
++          display: 'flex',
++          alignItems: 'flex-end',
++          height: '120px',
++          gap: '4px',
++        }}
++      >
++        {bars.map((heightPct, idx) => (
++          <div
++            key={`eq-bar-${idx}`}
++            data-testid={`eq-bar-${idx}`}
++            data-playing={isPlaying ? 'true' : 'false'}
++            style={{
++              flex: 1,
++              height: `${heightPct}%`,
++              backgroundColor: foregroundColor,
++              border: `1px solid ${foregroundColor}`,
++              boxShadow: isBeatPulse ? `0 0 10px ${foregroundColor}` : 'none',
++              transition: 'height 150ms ease, background-color 150ms ease',
++            }}
++          />
++        ))}
++      </div>
++    </section>
++  );
++}
+--- a/src/components/TrackCard.jsx
++++ b/src/components/TrackCard.jsx
+@@ -0,0 +1,26 @@
++import React from 'react';
++
++export default function TrackCard({
++  track,
++  foregroundColor = '#1DB954',
++  isBeatPulse = false,
++}) {
++  const artistNames = Array.isArray(track?.artists)
++    ? track.artists.map((artist) => artist.name).join(', ')
++    : 'Unknown Artist';
++
++  return (
++    <li
++      data-testid={`track-card-${track?.id || 'unknown'}`}
++      style={{
++        backgroundColor: '#000000',
++        color: foregroundColor,
++        border: `2px solid ${foregroundColor}`,
++        boxShadow: isBeatPulse ? `0 0 14px ${foregroundColor}` : 'none',
++        transform: isBeatPulse ? 'scale(1.02)' : 'scale(1)',
++      }}
++    >
++      <span style={{ color: foregroundColor }}>{`${track?.name} by ${artistNames}`}</span>
++    </li>
++  );
++}
+--- a/src/components/EmbedPlayer.jsx
++++ b/src/components/EmbedPlayer.jsx
+@@ -0,0 +1,44 @@
++import React from 'react';
++
++export default function EmbedPlayer({
++  playlistId = '2iFnYqiudxwGD3MGCxu2im',
++  isPlaying = false,
++  onTogglePlay,
++  foregroundColor = '#1DB954',
++  isBeatPulse = false,
++}) {
++  return (
++    <section
++      data-testid="embed-player-section"
++      style={{
++        backgroundColor: '#000000',
++        color: foregroundColor,
++        border: `2px solid ${foregroundColor}`,
++        boxShadow: isBeatPulse ? `0 0 16px ${foregroundColor}` : 'none',
++      }}
++    >
++      <button
++        type="button"
++        onClick={onTogglePlay}
++        style={{
++          backgroundColor: '#000000',
++          color: foregroundColor,
++          border: `2px solid ${foregroundColor}`,
++          transform: isBeatPulse ? 'scale(1.03)' : 'scale(1)',
++        }}
++      >
++        {isPlaying ? 'Pause Beat Sync' : 'Start Beat Sync'}
++      </button>
++      <iframe
++        title="Spotify Embed: Recommendation Playlist "
++        src={`https://open.spotify.com/embed/playlist/${playlistId}?utm_source=generator&theme=0`}
++        width="100%"
++        height="100%"
++        style={{ minHeight: '360px', border: `1px solid ${foregroundColor}` }}
++        frameBorder="0"
++        allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
++        loading="lazy"
++      />
++    </section>
++  );
++}
+--- a/src/pages/Dashboard.jsx
++++ b/src/pages/Dashboard.jsx
+@@ -0,0 +1,252 @@
++import React, { useState, useEffect, useCallback } from 'react';
++import { getTopTracks, createPlaylistWithTracks } from '../utils/spotifyApi';
++import {
++  RESTING_THEME,
++  computeNextVisualState,
++  applyThemeToDocument,
++} from '../utils/beatVisualizer';
++import {
++  TIME_RANGE_OPTIONS,
++  DEFAULT_EMBED_PLAYLIST_ID,
++} from '../data/fallbackCatalog';
++import GraphicEqualizer from '../components/GraphicEqualizer';
++import TrackCard from '../components/TrackCard';
++import EmbedPlayer from '../components/EmbedPlayer';
++
++export default function Dashboard({
++  initialToken = 'pkce-session-token',
++  initialBpm = 128,
++}) {
++  const [token, setToken] = useState(initialToken);
++  const [timeRange, setTimeRange] = useState('long_term');
++  const [tracks, setTracks] = useState([]);
++  const [activePlaylistId, setActivePlaylistId] = useState(
++    DEFAULT_EMBED_PLAYLIST_ID
++  );
++  const [isPlaying, setIsPlaying] = useState(false);
++  const [visualState, setVisualState] = useState(RESTING_THEME);
++  const [authError, setAuthError] = useState(false);
++  const [rateLimitError, setRateLimitError] = useState(false);
++
++  const loadTracks = useCallback(
++    async (activeToken, selectedRange) => {
++      try {
++        setRateLimitError(false);
++        const items = await getTopTracks(activeToken, selectedRange, 50);
++        setTracks(items);
++        setAuthError(false);
++      } catch (err) {
++        if (err.message === 'AUTH_EXPIRED') {
++          setAuthError(true);
++          setToken('');
++          setIsPlaying(false);
++          setVisualState(RESTING_THEME);
++          applyThemeToDocument(RESTING_THEME);
++        } else {
++          setRateLimitError(true);
++          setIsPlaying(false);
++          setVisualState(RESTING_THEME);
++          applyThemeToDocument(RESTING_THEME);
++        }
++      }
++    },
++    []
++  );
++
++  useEffect(() => {
++    loadTracks(token, timeRange);
++  }, [token, timeRange, loadTracks]);
++
++  useEffect(() => {
++    if (!isPlaying) {
++      setVisualState(RESTING_THEME);
++      applyThemeToDocument(RESTING_THEME);
++      return undefined;
++    }
++    let tick = 0;
++    const next = computeNextVisualState({
++      isPlaying: true,
++      bpm: initialBpm,
++      tickCount: tick,
++    });
++    setVisualState(next);
++    applyThemeToDocument(next);
++    const timerId = setInterval(() => {
++      tick += 1;
++      const beatState = computeNextVisualState({
++        isPlaying: true,
++        bpm: initialBpm,
++        tickCount: tick,
++      });
++      setVisualState(beatState);
++      applyThemeToDocument(beatState);
++    }, next.intervalMs);
++    return () => clearInterval(timerId);
++  }, [isPlaying, initialBpm]);
++
++  const handleSavePlaylist = async () => {
++    if (tracks.length === 0) return;
++    try {
++      const uris = tracks.map((t) => t.uri);
++      const created = await createPlaylistWithTracks(
++        token,
++        uris,
++        'My top tracks playlist'
++      );
++      if (created?.id) {
++        setActivePlaylistId(created.id);
++      }
++    } catch (err) {
++      if (err.message === 'AUTH_EXPIRED') {
++        setAuthError(true);
++        setIsPlaying(false);
++        setVisualState(RESTING_THEME);
++        applyThemeToDocument(RESTING_THEME);
++      } else {
++        setRateLimitError(true);
++      }
++    }
++  };
++
++  return (
++    <main
++      data-testid="spotify-dashboard"
++      style={{
++        backgroundColor: visualState.backgroundColor,
++        color: visualState.foregroundColor,
++        border: `2px solid ${visualState.foregroundColor}`,
++        boxShadow: visualState.isBeatPulse
++          ? `0 0 18px ${visualState.foregroundColor}`
++          : 'none',
++      }}
++    >
++      {authError && (
++        <div
++          role="alert"
++          data-testid="auth-error-banner"
++          style={{
++            color: visualState.foregroundColor,
++            border: `1px solid ${visualState.foregroundColor}`,
++          }}
++        >
++          <p>Session expired. Please re-authenticate.</p>
++          <button
++            type="button"
++            style={{
++              color: visualState.foregroundColor,
++              borderColor: visualState.foregroundColor,
++            }}
++            onClick={() => {
++              setAuthError(false);
++              setToken('pkce-reconnected-token');
++            }}
++          >
++            Reconnect Spotify (PKCE)
++          </button>
++        </div>
++      )}
++
++      {rateLimitError && (
++        <div
++          role="alert"
++          data-testid="rate-limit-banner"
++          style={{
++            color: visualState.foregroundColor,
++            border: `1px solid ${visualState.foregroundColor}`,
++          }}
++        >
++          <p>Network or rate limit reached. Beat visualizer paused.</p>
++          <button
++            type="button"
++            style={{
++              color: visualState.foregroundColor,
++              borderColor: visualState.foregroundColor,
++            }}
++            onClick={() => loadTracks(token, timeRange)}
++          >
++            Retry Request
++          </button>
++        </div>
++      )}
++
++      <section
++        aria-label="Time Range Controls"
++        style={{
++          color: visualState.foregroundColor,
++          borderBottom: `1px solid ${visualState.foregroundColor}`,
++        }}
++      >
++        {TIME_RANGE_OPTIONS.map((opt) => (
++          <button
++            key={opt.optionId}
++            type="button"
++            style={{
++              backgroundColor: '#000000',
++              color: visualState.foregroundColor,
++              border: `1px solid ${visualState.foregroundColor}`,
++            }}
++            onClick={() => setTimeRange(opt.rangeKey)}
++          >
++            {opt.displayLabel}
++          </button>
++        ))}
++        <button
++          type="button"
++          disabled={tracks.length === 0}
++          style={{
++            backgroundColor: '#000000',
++            color: visualState.foregroundColor,
++            border: `2px solid ${visualState.foregroundColor}`,
++          }}
++          onClick={handleSavePlaylist}
++        >
++          Save to Playlist
++        </button>
++      </section>
++
++      {tracks.length === 0 ? (
++        <div
++          data-testid="empty-tracks-state"
++          style={{
++            color: visualState.foregroundColor,
++            border: `1px dashed ${visualState.foregroundColor}`,
++          }}
++        >
++          <p>No tracks found for this time range. Try another filter.</p>
++        </div>
++      ) : (
++        <ul
++          data-testid="tracks-list"
++          style={{
++            color: visualState.foregroundColor,
++            borderColor: visualState.foregroundColor,
++          }}
++        >
++          {tracks.map((track) => (
++            <TrackCard
++              key={track.id}
++              track={track}
++              foregroundColor={visualState.foregroundColor}
++              isBeatPulse={visualState.isBeatPulse}
++            />
++          ))}
++        </ul>
++      )}
++
++      <GraphicEqualizer
++        bars={visualState.equalizerBars}
++        foregroundColor={visualState.foregroundColor}
++        isBeatPulse={visualState.isBeatPulse}
++        isPlaying={isPlaying}
++      />
++
++      <EmbedPlayer
++        playlistId={activePlaylistId}
++        isPlaying={isPlaying}
++        onTogglePlay={() => setIsPlaying((prev) => !prev)}
++        foregroundColor={visualState.foregroundColor}
++        isBeatPulse={visualState.isBeatPulse}
++      />
++    </main>
++  );
++}
+--- a/src/App.jsx
++++ b/src/App.jsx
+@@ -0,0 +1,19 @@
++import React from 'react';
++import { BrowserRouter, Routes, Route } from 'react-router-dom';
++import Navbar from './components/Navbar';
++import Footer from './components/Footer';
++import Dashboard from './pages/Dashboard';
++import NotFound from './pages/NotFound';
++
++export default function App() {
++  return (
++    <BrowserRouter>
++      <Navbar />
++      <Routes>
++        <Route path="/" element={<Dashboard />} />
++        <Route path="*" element={<NotFound />} />
++      </Routes>
++      <Footer />
++    </BrowserRouter>
++  );
++}
+--- a/src/main.jsx
++++ b/src/main.jsx
+@@ -0,0 +1,9 @@
++import React from 'react';
++import ReactDOM from 'react-dom/client';
++import App from './App';
++
++ReactDOM.createRoot(document.getElementById('root')).render(
++  <React.StrictMode>
++    <App />
++  </React.StrictMode>
++);
+--- a/__tests__/spotifyApi.test.js
++++ b/__tests__/spotifyApi.test.js
+@@ -0,0 +1,74 @@
++import {
++  fetchWebApi,
++  getTopTracks,
++  createPlaylistWithTracks,
++} from '../src/utils/spotifyApi';
++
++describe('Spotify Web API Client [SDD-REQ-01, SDD-REQ-02]', () => {
++  beforeEach(() => {
++    global.fetch = jest.fn();
++  });
++
++  test('getTopTracks fetches up to 50 tracks with Bearer token', async () => {
++    const mockItems = [
++      {
++        id: '1',
++        uri: 'spotify:track:2JuasWPUodaUxf5nwNpciQ',
++        name: 'Track One',
++        artists: [{ name: 'Artist A' }],
++      },
++    ];
++    global.fetch.mockResolvedValueOnce({
++      ok: true,
++      status: 200,
++      json: async () => ({ items: mockItems }),
++    });
++
++    const result = await getTopTracks('valid-token', 'long_term', 50);
++    expect(global.fetch).toHaveBeenCalledWith(
++      'https://api.spotify.com/v1/me/top/tracks?time_range=long_term&limit=50',
++      expect.objectContaining({
++        method: 'GET',
++        headers: expect.objectContaining({
++          Authorization: 'Bearer valid-token',
++        }),
++      })
++    );
++    expect(result).toEqual(mockItems);
++  });
++
++  test('fetchWebApi throws AUTH_EXPIRED on 401 status', async () => {
++    global.fetch.mockResolvedValueOnce({ ok: false, status: 401 });
++    await expect(getTopTracks('expired-token')).rejects.toThrow('AUTH_EXPIRED');
++  });
++
++  test('fetchWebApi throws RATE_LIMITED on 429 or network error', async () => {
++    global.fetch.mockResolvedValueOnce({ ok: false, status: 429 });
++    await expect(getTopTracks('valid-token')).rejects.toThrow('RATE_LIMITED');
++  });
++
++  test('createPlaylistWithTracks throws EMPTY_TRACKS when array is empty', async () => {
++    await expect(createPlaylistWithTracks('valid-token', [])).rejects.toThrow(
++      'EMPTY_TRACKS'
++    );
++  });
++
++  test('createPlaylistWithTracks creates private playlist and posts URIs', async () => {
++    global.fetch
++      .mockResolvedValueOnce({
++        ok: true,
++        status: 201,
++        json: async () => ({ id: 'playlist-123', name: 'My top tracks playlist' }),
++      })
++      .mockResolvedValueOnce({
++        ok: true,
++        status: 201,
++        json: async () => ({ snapshot_id: 'snap-1' }),
++      });
++
++    const uris = ['spotify:track:2JuasWPUodaUxf5nwNpciQ'];
++    const created = await createPlaylistWithTracks('valid-token', uris);
++    expect(created.id).toBe('playlist-123');
++    expect(global.fetch).toHaveBeenCalledTimes(2);
++  });
++});
+--- a/__tests__/beatVisualizer.test.js
++++ b/__tests__/beatVisualizer.test.js
+@@ -0,0 +1,58 @@
++import {
++  RESTING_THEME,
++  BEATS_PALETTE,
++  calculateBeatIntervalMs,
++  generateEqualizerBars,
++  computeNextVisualState,
++  applyThemeToDocument,
++} from '../src/utils/beatVisualizer';
++
++describe('Beat Visualizer Engine [SDD-REQ-03]', () => {
++  test('returns #000000 background and #1DB954 foreground when not playing', () => {
++    const state = computeNextVisualState({ isPlaying: false, bpm: 120 });
++    expect(state).toEqual(RESTING_THEME);
++    expect(state.backgroundColor).toBe('#000000');
++    expect(state.foregroundColor).toBe('#1DB954');
++    expect(state.isBeatPulse).toBe(false);
++    expect(state.equalizerBars).toHaveLength(16);
++    expect(state.equalizerBars.every((h) => h === 15)).toBe(true);
++  });
++
++  test('cycles foreground color and pulses to exact BPM when playing', () => {
++    const state = computeNextVisualState({
++      isPlaying: true,
++      bpm: 120,
++      tickCount: 2,
++      randomFn: () => 0.25,
++    });
++    expect(state.backgroundColor).toBe('#000000');
++    expect(BEATS_PALETTE).toContain(state.foregroundColor);
++    expect(state.foregroundColor).toBe('#FF2A85');
++    expect(state.isBeatPulse).toBe(true);
++    expect(state.intervalMs).toBe(500);
++    expect(generateEqualizerBars(true, true, () => 0.5)).toHaveLength(16);
++    expect(state.equalizerBars.every((h) => h > 15)).toBe(true);
++
++    applyThemeToDocument(state);
++    expect(document.documentElement.style.getPropertyValue('--fg-color')).toBe(
++      '#FF2A85'
++    );
++    expect(
++      document.documentElement.style.getPropertyValue('--beat-scale')
++    ).toBe('1.02');
++  });
++
++  test('falls back to 500ms (120 BPM) when BPM metadata is missing or invalid', () => {
++    expect(calculateBeatIntervalMs(null)).toBe(500);
++    expect(calculateBeatIntervalMs(undefined)).toBe(500);
++    expect(calculateBeatIntervalMs(0)).toBe(500);
++    const fallbackState = computeNextVisualState({
++      isPlaying: true,
++      bpm: null,
++      tickCount: 1,
++      randomFn: () => 0.5,
++    });
++    expect(fallbackState.intervalMs).toBe(500);
++    expect(fallbackState.isBeatPulse).toBe(false);
++  });
++});
+--- a/__tests__/Dashboard.test.jsx
++++ b/__tests__/Dashboard.test.jsx
+@@ -0,0 +1,71 @@
++import React from 'react';
++import { render, screen, fireEvent, waitFor } from '@testing-library/react';
++import '@testing-library/jest-dom';
++import Dashboard from '../src/pages/Dashboard';
++import * as spotifyApi from '../src/utils/spotifyApi';
++
++jest.mock('../src/utils/spotifyApi');
++
++describe('Spotify Clone Dashboard [SDD-REQ-04, SDD-REQ-05, SDD-REQ-06]', () => {
++  beforeEach(() => {
++    jest.clearAllMocks();
++  });
++
++  test('renders fetched top tracks and updates embed playlist on save', async () => {
++    spotifyApi.getTopTracks.mockResolvedValue([
++      {
++        id: 't1',
++        uri: 'spotify:track:2JuasWPUodaUxf5nwNpciQ',
++        name: 'Midnight City',
++        artists: [{ name: 'M83' }],
++      },
++    ]);
++    spotifyApi.createPlaylistWithTracks.mockResolvedValue({
++      id: 'new-playlist-999',
++      name: 'My top tracks playlist',
++    });
++
++    render(<Dashboard initialToken="test-token" initialBpm={120} />);
++
++    expect(await screen.findByText('Midnight City by M83')).toBeInTheDocument();
++    expect(screen.getByTestId('graphic-equalizer')).toBeInTheDocument();
++    expect(screen.getAllByTestId(/^eq-bar-/)).toHaveLength(16);
++
++    const saveBtn = screen.getByRole('button', { name: /Save to Playlist/i });
++    expect(saveBtn).not.toBeDisabled();
++    fireEvent.click(saveBtn);
++
++    await waitFor(() => {
++      const iframe = screen.getByTitle(/Spotify Embed: Recommendation Playlist/i);
++      expect(iframe.getAttribute('src')).toContain('new-playlist-999');
++    });
++  });
++
++  test('disables Save to Playlist button and shows empty state when 0 tracks', async () => {
++    spotifyApi.getTopTracks.mockResolvedValue([]);
++    render(<Dashboard initialToken="test-token" />);
++
++    expect(await screen.findByTestId('empty-tracks-state')).toBeInTheDocument();
++    expect(screen.getByRole('button', { name: /Save to Playlist/i })).toBeDisabled();
++  });
++
++  test('shows PKCE reconnect fallback on 401 AUTH_EXPIRED error', async () => {
++    spotifyApi.getTopTracks.mockRejectedValue(new Error('AUTH_EXPIRED'));
++    render(<Dashboard initialToken="expired-token" />);
++
++    expect(await screen.findByTestId('auth-error-banner')).toBeInTheDocument();
++    expect(
++      screen.getByRole('button', { name: /Reconnect Spotify \(PKCE\)/i })
++    ).toBeInTheDocument();
++  });
++
++  test('shows Retry Request banner on 429 RATE_LIMITED error', async () => {
++    spotifyApi.getTopTracks.mockRejectedValue(new Error('RATE_LIMITED'));
++    render(<Dashboard initialToken="valid-token" />);
++
++    expect(await screen.findByTestId('rate-limit-banner')).toBeInTheDocument();
++    expect(
++      screen.getByRole('button', { name: /Retry Request/i })
++    ).toBeInTheDocument();
++  });
++});
