@@ -6,11 +6,11 @@
 
 ## Phase 1: Environment & Scaffolding
 
-- [ ] Run terminal command: `git init` and create `.gitignore` (`node_modules/`, `dist/`, `.env`, `.env.local`, `coverage/`, `.DS_Store`) per Artifact 2.
-- [ ] Run terminal command: `npm create vite@latest . -- --template react` to scaffold the Vite + React baseline.
-- [ ] Run terminal command: `npm install react-router-dom` to install client-side routing.
-- [ ] Run terminal command: `npm install --save-dev jest jest-environment-jsdom @testing-library/react @testing-library/jest-dom @testing-library/user-event @babel/core @babel/preset-env @babel/preset-react babel-jest identity-obj-proxy` to install the mandatory Jest and React Testing Library suite.
-- [ ] Run terminal command: `mkdir -p src/utils src/data src/components src/pages __tests__` to scaffold the modular directory structure mapped in Artifact 4.
+- [x] Run terminal command: `git init` and create `.gitignore` (`node_modules/`, `dist/`, `.env`, `.env.local`, `coverage/`, `.DS_Store`) per Artifact 2.
+- [x] Run terminal command: `npm create vite@latest . -- --template react` to scaffold the Vite + React baseline.
+- [x] Run terminal command: `npm install react-router-dom` to install client-side routing.
+- [x] Run terminal command: `npm install --save-dev jest jest-environment-jsdom @testing-library/react @testing-library/jest-dom @testing-library/user-event @babel/core @babel/preset-env @babel/preset-react babel-jest identity-obj-proxy` to install the mandatory Jest and React Testing Library suite.
+- [x] Run terminal command: `mkdir -p src/utils src/data src/components src/pages __tests__` to scaffold the modular directory structure mapped in Artifact 4.
 
 ## Phase 2: Logic & State (Artifact 5 Alignment)
 
