@@ -1,35 +1,46 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import React from 'react';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import Navbar from './components/Navbar';
+import Footer from './components/Footer';
+import Dashboard from './pages/Dashboard';
+import NotFound from './pages/NotFound';
+import './App.css';
 
-function App() {
-  const [count, setCount] = useState(0)
+export default function App() {
+  // Step 6t: Write return (
+       return (
+          <>
+          <BrowserRouter>
+          <Navbar />
+           <Routes>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="*" element={<NotFound />} />
+           </Routes>
+          <Footer />
+          </BrowserRouter>
+          </>
+       )
+    // Step 6u: Open a <BrowserRouter> tag
 
-  return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+      // Step 6v: Render a self-closing <Navbar /> component
+
+      // Step 6w: Open a <Routes> tag
+
+        // Step 6x: Render <Route path="/" element={<Dashboard />} />
+
+        // Step 6y: Render <Route path="*" element={<NotFound />} />
+
+      // Step 6z: Close the </Routes> tag
+
+      // Step 6aa: Render a self-closing <Footer /> component
+
+    // Step 6ab: Close the </BrowserRouter> tag
+
+  // Step 6ac: Close the return statement with );
+
+  // (Remove temporary return null; below once you write Step 6t–6ac)
+  return null;
 }
 
-export default App
+// LIVE HMR CHECK: Start `npm run dev` and confirm `/` mounts Dashboard and `/unknown` mounts NotFound!
+// NEXT STEP: Open src/components/GraphicEqualizer.jsx
