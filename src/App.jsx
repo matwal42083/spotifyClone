@@ -1,35 +1,87 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import React, { useState, useCallback } from 'react';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import Navbar from './components/Navbar';
+import Sidebar from './components/Sidebar';
+import Footer from './components/Footer';
+import Dashboard from './pages/Dashboard';
+import NotFound from './pages/NotFound';
+import { DEFAULT_EMBED_PLAYLIST_ID } from './data/fallbackCatalog';
+import './App.css';
 
-function App() {
-  const [count, setCount] = useState(0)
+/**
+ * Root Spotify Web Player fixed 100vh shell:
+ * Fixed top Navbar, fixed left Library Sidebar, scrollable center content pane, fixed bottom Footer.
+ */
+export default function App() {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedPlaylistId, setSelectedPlaylistId] = useState(
+    DEFAULT_EMBED_PLAYLIST_ID
+  );
+  const [visualMeta, setVisualMeta] = useState({
+    isPlaying: false,
+    bpm: 128,
+    foregroundColor: '#1DB954',
+    isBeatPulse: false,
+    activePlaylistId: DEFAULT_EMBED_PLAYLIST_ID,
+  });
+
+  const handleSyncVisualMeta = useCallback((meta) => {
+    setVisualMeta((prev) => {
+      if (
+        prev.isPlaying === meta.isPlaying &&
+        prev.bpm === meta.bpm &&
+        prev.foregroundColor === meta.foregroundColor &&
+        prev.isBeatPulse === meta.isBeatPulse &&
+        prev.activePlaylistId === meta.activePlaylistId
+      ) {
+        return prev;
+      }
+      return meta;
+    });
+  }, []);
 
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
-}
+    <BrowserRouter>
+      <div className="spotify-app-shell">
+        <Navbar
+          foregroundColor={visualMeta.foregroundColor}
+          isBeatPulse={visualMeta.isBeatPulse}
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          bpm={visualMeta.bpm}
+          isPlaying={visualMeta.isPlaying}
+        />
 
-export default App
+        <div className="spotify-body-grid">
+          <Sidebar
+            activePlaylistId={visualMeta.activePlaylistId}
+            onSelectPlaylist={setSelectedPlaylistId}
+            isPlaying={visualMeta.isPlaying}
+          />
+          <div className="spotify-scroll-pane">
+            <Routes>
+              <Route
+                path="/"
+                element={
+                  <Dashboard
+                    searchQuery={searchQuery}
+                    externalPlaylistId={selectedPlaylistId}
+                    onPlaylistChange={setSelectedPlaylistId}
+                    onSyncVisualMeta={handleSyncVisualMeta}
+                  />
+                }
+              />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </div>
+        </div>
+
+        <Footer
+          activePlaylistId={visualMeta.activePlaylistId}
+          foregroundColor={visualMeta.foregroundColor}
+          isBeatPulse={visualMeta.isBeatPulse}
+        />
+      </div>
+    </BrowserRouter>
+  );
+}

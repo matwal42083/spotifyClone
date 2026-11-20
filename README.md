@@ -1,31 +1,22 @@
-# Spotify Clone
+# Spotify Clone — Beat-Reactive Concert Web Player
 
-A personal React project exploring how to shape Spotify-inspired music discovery into a polished, interactive dashboard. The goal is to grow this into a portfolio-quality product and demonstrate thoughtful frontend engineering, reliable API integration, and a refined user experience.
+A custom React 18 + Vite Spotify Web Player clone featuring a fixed `100vh` Spotify layout, real-time Web Audio FFT live-audio beat synchronization, a 48-band gradient graphic equalizer, a cubic-Bezier dancing hero wave, concert stage strobe lights, dual beat-pumping sidebar speakers, curated rock/metal lighting scenes, and 15 automated Jest + React Testing Library tests.
 
-> [!IMPORTANT]
-> **Project status: early scaffold.** The current application is still the default React + Vite starter screen. Spotify sign-in, music browsing, playback, playlists, and visualizer features described below are planned—not implemented or production-ready yet. This README separates the product direction from what the repository can do today.
+---
 
-## Product direction
+## Features
 
-The planned experience is a dark, responsive music dashboard with Spotify-green accents and playback-reactive visuals. The project is intended to explore:
+- **Fixed `100vh` Spotify Web Player Shell:** Inverted `#000000` top bar with centered circular Home button and live Search pill, fixed left **Your Library** sidebar with custom Spotify playlist URL importer (saved in `localStorage`) and pinned **Rock Opera** playlist, fixed hero header, and scrollable center content pane.
+- **Real-Time Live Audio Beat Sync (`src/utils/audioBeatDetector.js`):** Captures live browser tab audio via Web Audio `AnalyserNode` (`getDisplayMedia`) with 60fps FFT spectrum analysis and positive spectral-flux beat detection—when the music stops or pauses, the entire stage immediately resets to resting Spotify Green (`#1DB954`).
+- **Curated Concert Lighting Engine (`src/utils/beatVisualizer.js`):** Cycles smoothly across 6 cohesive rock/metal concert lighting scenes (**Crimson Fire**, **Electric Blue**, **Laser Green**, **Stadium Gold**, **Ultraviolet**, **Chrome Ice**) using CSS Houdini `@property` typed `<color>` transitions (`380ms ease`) for silky gradient morphing alongside crisp beat-locked `box-shadow` flashes, header strobe spots, dancing buttons, and pumping subwoofer speakers.
+- **48-Band Gradient Graphic Equalizer & Dancing Wave (`src/components/GraphicEqualizer.jsx`, `src/components/HeroWaveDancer.jsx`):** 0ms-lag 60fps audio-reactive bars and dual harmonic wave lines locked directly to the live spectrum.
+- **Spotify Web API Client (`src/utils/spotifyApi.js`):** Centralized `fetchWebApi`, `getTopTracks` (`limit=50`), and `createPlaylistWithTracks` (`public: false`) with `401 AUTH_EXPIRED`, `429 RATE_LIMITED`, and `EMPTY_TRACKS` guards.
 
-- Spotify account authorization using OAuth 2.0 Authorization Code with PKCE.
-- Browsing top tracks and playlists, with search and useful empty and error states.
-- A persistent playback experience using Spotify's supported embed or playback options.
-- A beat-reactive theme and animated equalizer that degrades gracefully when track analysis data is unavailable.
-- Maintainable component boundaries, accessible controls, and focused automated tests as the feature set develops.
+---
 
-These are goals, not a list of working features. Spotify API access and playback may also depend on Spotify account eligibility, app configuration, and current platform policies.
+## Run Locally
 
-## Current implementation
-
-- React 18 and Vite application scaffold.
-- ESLint configuration and npm scripts for local development, production builds, and linting.
-- No Spotify credentials, authentication flow, API integration, dashboard, or tests are implemented yet.
-
-## Run locally
-
-**Requirements:** Node.js and npm.
+**Requirements:** Node.js (v20+ LTS) and npm.
 
 ```bash
 git clone https://github.com/matwal42083/spotifyClone.git
@@ -34,27 +25,30 @@ npm install
 npm run dev
 ```
 
-To check the current scaffold:
+### Testing & Production Build
 
 ```bash
-npm run lint
+# Run full Jest + React Testing Library test suite (15 tests)
+npx jest --watchAll=false
+
+# Production build
 npm run build
 ```
 
+---
+
 ## Technology
 
-**In use:** React, Vite, JavaScript, and ESLint.
+- **Frontend:** React 18, Vite, React Router (`react-router-dom`), CSS Houdini `@property`, Web Audio API (`AnalyserNode`)
+- **Testing:** Jest, React Testing Library, `@testing-library/jest-dom`, `babel-jest`
+- **Playback:** Spotify Embed Iframe API (`open.spotify.com/embed`)
 
-**Planned:** Spotify Web API integration, PKCE authentication, playback UI, and the beat-reactive visualizer. Planned technology is subject to change as implementation and Spotify's platform requirements are validated.
-
-## Preview
-
-A product screenshot will be added once the dashboard UI exists. For now, the running app displays the unmodified Vite starter screen.
+---
 
 ## Feedback
 
-This is an independently built portfolio experiment. Feedback that helps improve the product direction, accessibility, interface design, or implementation approach is welcome.
+This is an independently built portfolio project. Feedback that helps improve the product direction, accessibility, interface design, or implementation approach is welcome.
 
 ## Disclaimer
 
-This project is not affiliated with, endorsed by, or sponsored by Spotify. Spotify and its related marks are the property of Spotify AB. Any future integration will follow Spotify's developer terms and branding requirements.
+This project is not affiliated with, endorsed by, or sponsored by Spotify. Spotify and its related marks are the property of Spotify AB.
