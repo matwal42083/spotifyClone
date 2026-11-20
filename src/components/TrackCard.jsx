@@ -1,25 +1,50 @@
 import React from 'react';
 
+/**
+ * Spotify-style track row with independent mixed concert-light color accents per card.
+ */
 export default function TrackCard({
   track,
+  index = 0,
   foregroundColor = '#1DB954',
+  accentColor,
   isBeatPulse = false,
+  isPlaying = false,
 }) {
-  // Step 7j: Write const artistNames = Array.isArray(track?.artists) ? track.artists.map((artist) => artist.name).join(', ') : 'Unknown Artist';
+  const artistNames = Array.isArray(track?.artists)
+    ? track.artists.map((artist) => artist.name).join(', ')
+    : 'Unknown Artist';
 
-  // Step 7k: Write return (
+  const cardColor = isPlaying ? accentColor || foregroundColor : '#1DB954';
 
-    // Step 7l: Open a <li data-testid={`track-card-${track?.id || 'unknown'}`} style={{ backgroundColor: '#000000', color: foregroundColor, border: `2px solid ${foregroundColor}`, boxShadow: isBeatPulse ? `0 0 14px ${foregroundColor}` : 'none', transform: isBeatPulse ? 'scale(1.02)' : 'scale(1)' }}> tag
-
-      // Step 7m: Render <span style={{ color: foregroundColor }}>{`${track?.name} by ${artistNames}`}</span>
-
-    // Step 7n: Close the </li> tag
-
-  // Step 7o: Close the return statement with );
-
-  // (Remove temporary return null; below once you write Step 7j–7o)
-  return null;
+  return (
+    <li
+      data-testid={`track-card-${track?.id || 'unknown'}`}
+      className={`spotify-track-row ${isPlaying ? 'is-concert-live' : ''}`}
+      style={{
+        backgroundColor: '#121212',
+        color: cardColor,
+        border: `1px solid ${isPlaying ? cardColor : '#282828'}`,
+        boxShadow: isPlaying && isBeatPulse ? `0 0 14px ${cardColor}` : 'none',
+        transform: isPlaying && isBeatPulse ? 'scale(1.01)' : 'scale(1)',
+      }}
+    >
+      <span className="track-index" style={{ color: cardColor }}>
+        {index + 1}
+      </span>
+      <span
+        className="track-art-badge"
+        aria-hidden="true"
+        style={{
+          borderColor: cardColor,
+          color: cardColor,
+        }}
+      >
+        ♫
+      </span>
+      <span className="track-title-text" style={{ color: cardColor }}>
+        {`${track?.name} by ${artistNames}`}
+      </span>
+    </li>
+  );
 }
-
-// LIVE HMR CHECK: Save and confirm zero Vite compile errors.
-// NEXT STEP: Open src/components/EmbedPlayer.jsx

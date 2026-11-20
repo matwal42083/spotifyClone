@@ -6,6 +6,7 @@ import {
   computeNextVisualState,
   applyThemeToDocument,
 } from '../src/utils/beatVisualizer';
+import { analyzeFrequencyFrame } from '../src/utils/audioBeatDetector';
 
 describe('Beat Visualizer Engine [SDD-REQ-03]', () => {
   test('returns #000000 background and #1DB954 foreground when not playing', () => {
@@ -54,5 +55,34 @@ describe('Beat Visualizer Engine [SDD-REQ-03]', () => {
     });
     expect(fallbackState.intervalMs).toBe(500);
     expect(fallbackState.isBeatPulse).toBe(false);
+  });
+
+  test('produces mixed concert colors across equalizer bars and UI regions when playing', () => {
+    const state = computeNextVisualState({
+      isPlaying: true,
+      bpm: 128,
+      tickCount: 3,
+      randomFn: () => 0.1,
+    });
+    expect(state.equalizerBarColors).toHaveLength(16);
+    expect(new Set(state.equalizerBarColors).size).toBeGreaterThan(1);
+    expect(new Set(Object.values(state.concertColors)).size).toBeGreaterThan(1);
+  });
+
+  test('live audio FFT analyzer freezes bars at 15% on silence and triggers beat hit on bass transient', () => {
+    const silentBins = new Uint8Array(256).fill(0);
+    const silentFrame = analyzeFrequencyFrame(silentBins, 60, 0, 500, 16);
+    expect(silentFrame.isSilent).toBe(true);
+    expect(silentFrame.isBeatHit).toBe(false);
+    expect(silentFrame.bars.every((h) => h === 15)).toBe(true);
+
+    const kickBins = new Uint8Array(256).fill(20);
+    for (let i = 0; i < 10; i += 1) {
+      kickBins[i] = 220;
+    }
+    const kickFrame = analyzeFrequencyFrame(kickBins, 50, 0, 500, 16);
+    expect(kickFrame.isSilent).toBe(false);
+    expect(kickFrame.isBeatHit).toBe(true);
+    expect(kickFrame.bars[0]).toBeGreaterThan(80);
   });
 });

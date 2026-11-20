@@ -1,46 +1,87 @@
-import React from 'react';
+import React, { useState, useCallback } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Navbar from './components/Navbar';
+import Sidebar from './components/Sidebar';
 import Footer from './components/Footer';
 import Dashboard from './pages/Dashboard';
 import NotFound from './pages/NotFound';
+import { DEFAULT_EMBED_PLAYLIST_ID } from './data/fallbackCatalog';
 import './App.css';
 
+/**
+ * Root Spotify Web Player fixed 100vh shell:
+ * Fixed top Navbar, fixed left Library Sidebar, scrollable center content pane, fixed bottom Footer.
+ */
 export default function App() {
-  // Step 6t: Write return (
-       return (
-          <>
-          <BrowserRouter>
-          <Navbar />
-           <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="*" element={<NotFound />} />
-           </Routes>
-          <Footer />
-          </BrowserRouter>
-          </>
-       )
-    // Step 6u: Open a <BrowserRouter> tag
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedPlaylistId, setSelectedPlaylistId] = useState(
+    DEFAULT_EMBED_PLAYLIST_ID
+  );
+  const [visualMeta, setVisualMeta] = useState({
+    isPlaying: false,
+    bpm: 128,
+    foregroundColor: '#1DB954',
+    isBeatPulse: false,
+    activePlaylistId: DEFAULT_EMBED_PLAYLIST_ID,
+  });
 
-      // Step 6v: Render a self-closing <Navbar /> component
+  const handleSyncVisualMeta = useCallback((meta) => {
+    setVisualMeta((prev) => {
+      if (
+        prev.isPlaying === meta.isPlaying &&
+        prev.bpm === meta.bpm &&
+        prev.foregroundColor === meta.foregroundColor &&
+        prev.isBeatPulse === meta.isBeatPulse &&
+        prev.activePlaylistId === meta.activePlaylistId
+      ) {
+        return prev;
+      }
+      return meta;
+    });
+  }, []);
 
-      // Step 6w: Open a <Routes> tag
+  return (
+    <BrowserRouter>
+      <div className="spotify-app-shell">
+        <Navbar
+          foregroundColor={visualMeta.foregroundColor}
+          isBeatPulse={visualMeta.isBeatPulse}
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          bpm={visualMeta.bpm}
+          isPlaying={visualMeta.isPlaying}
+        />
 
-        // Step 6x: Render <Route path="/" element={<Dashboard />} />
+        <div className="spotify-body-grid">
+          <Sidebar
+            activePlaylistId={visualMeta.activePlaylistId}
+            onSelectPlaylist={setSelectedPlaylistId}
+            isPlaying={visualMeta.isPlaying}
+          />
+          <div className="spotify-scroll-pane">
+            <Routes>
+              <Route
+                path="/"
+                element={
+                  <Dashboard
+                    searchQuery={searchQuery}
+                    externalPlaylistId={selectedPlaylistId}
+                    onPlaylistChange={setSelectedPlaylistId}
+                    onSyncVisualMeta={handleSyncVisualMeta}
+                  />
+                }
+              />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </div>
+        </div>
 
-        // Step 6y: Render <Route path="*" element={<NotFound />} />
-
-      // Step 6z: Close the </Routes> tag
-
-      // Step 6aa: Render a self-closing <Footer /> component
-
-    // Step 6ab: Close the </BrowserRouter> tag
-
-  // Step 6ac: Close the return statement with );
-
-  // (Remove temporary return null; below once you write Step 6t–6ac)
-  return null;
+        <Footer
+          activePlaylistId={visualMeta.activePlaylistId}
+          foregroundColor={visualMeta.foregroundColor}
+          isBeatPulse={visualMeta.isBeatPulse}
+        />
+      </div>
+    </BrowserRouter>
+  );
 }
-
-// LIVE HMR CHECK: Start `npm run dev` and confirm `/` mounts Dashboard and `/unknown` mounts NotFound!
-// NEXT STEP: Open src/components/GraphicEqualizer.jsx

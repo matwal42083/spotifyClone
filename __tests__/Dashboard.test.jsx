@@ -68,4 +68,41 @@ describe('Spotify Clone Dashboard [SDD-REQ-04, SDD-REQ-05, SDD-REQ-06]', () => {
       screen.getByRole('button', { name: /Retry Request/i })
     ).toBeInTheDocument();
   });
+
+  test('auto-starts and pauses equalizer via Spotify Embed playback_update messages', async () => {
+    spotifyApi.getTopTracks.mockResolvedValue([]);
+    render(<Dashboard initialToken="valid-token" initialBpm={120} />);
+
+    expect(await screen.findByTestId('graphic-equalizer')).toBeInTheDocument();
+    expect(screen.getByTestId('eq-bar-0')).toHaveAttribute('data-playing', 'false');
+
+    fireEvent(
+      window,
+      new MessageEvent('message', {
+        origin: 'https://open.spotify.com',
+        data: { type: 'playback_update', payload: { isPaused: false } },
+      })
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('eq-bar-0')).toHaveAttribute('data-playing', 'true');
+    });
+
+    const barColors = screen
+      .getAllByTestId(/^eq-bar-/)
+      .map((bar) => bar.getAttribute('data-bar-color'));
+    expect(new Set(barColors).size).toBeGreaterThan(1);
+
+    fireEvent(
+      window,
+      new MessageEvent('message', {
+        origin: 'https://open.spotify.com',
+        data: { type: 'playback_update', payload: { isPaused: true } },
+      })
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('eq-bar-0')).toHaveAttribute('data-playing', 'false');
+    });
+  });
 });
